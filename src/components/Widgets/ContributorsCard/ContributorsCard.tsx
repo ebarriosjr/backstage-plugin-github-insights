@@ -16,17 +16,17 @@
 import React, { FC } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Alert from '@material-ui/lab/Alert';
-import { InfoCard, Progress, useApi, githubAuthApiRef } from '@backstage/core';
+import { InfoCard, Progress } from '@backstage/core';
 import { Entity } from '@backstage/catalog-model';
-import { useAsync } from 'react-use';
-import { Octokit } from '@octokit/rest';
-import { ContributorData } from './types';
 import { useProjectEntity } from '../../useProjectEntity';
 import ContributorsList from './components/ContributorsList';
+import { useRequest } from '../../useRequest';
+import { useUrl } from '../../useUrl';
 
 const useStyles = makeStyles(theme => ({
   infoCard: {
-    '& + .MuiCard-root, & + .MuiAlert-root': {
+    marginBottom: theme.spacing(3),
+    '& + .MuiAlert-root': {
       marginTop: theme.spacing(3),
     }
   },
@@ -38,21 +38,9 @@ type ContributorsCardProps = {
 
 const ContributorsCard: FC<ContributorsCardProps> = ({ entity }) => {
   const { owner, repo } = useProjectEntity(entity);
-  const auth = useApi(githubAuthApiRef);
   const classes = useStyles();
-  const { value, loading, error } = useAsync(async (): Promise<
-    ContributorData[]
-  > => {
-    const token = await auth.getAccessToken(['repo']);
-    const octokit = new Octokit({auth: token});
-    const response = await octokit.request('GET /repos/{owner}/{repo}/contributors', {
-      owner,
-      repo,
-      per_page: 10,
-    });
-    const data = await response.data;
-    return data;
-  }, []);
+  const { value, loading, error } = useRequest(entity, 'contributors', 10);
+  const { hostname } = useUrl();
 
   if (loading) {
     return <Progress />;
@@ -64,9 +52,12 @@ const ContributorsCard: FC<ContributorsCardProps> = ({ entity }) => {
     <InfoCard
       title="Contributors"
       deepLink={{
-        link: `https://github.com/${owner}/${repo}/graphs/contributors`,
+        link: `//${hostname}/${owner}/${repo}/graphs/contributors`,
         title: 'People',
-        onClick: () => window.open(`https://github.com/${owner}/${repo}/graphs/contributors`),
+        onClick: (e) => {
+          e.preventDefault();
+          window.open(`//${hostname}/${owner}/${repo}/graphs/contributors`);
+        }
       }}
       className={classes.infoCard}
     >

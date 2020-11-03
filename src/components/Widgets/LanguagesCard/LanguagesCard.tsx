@@ -16,16 +16,16 @@
 import React, { FC } from 'react';
 import { Chip, makeStyles, Tooltip } from '@material-ui/core';
 import Alert from '@material-ui/lab/Alert';
-import { InfoCard, Progress, useApi, githubAuthApiRef } from '@backstage/core';
+import { InfoCard, Progress } from '@backstage/core';
 import { Entity } from '@backstage/catalog-model';
-import { useAsync } from 'react-use';
-import { Octokit } from '@octokit/rest';
 import { useProjectEntity } from '../../useProjectEntity';
+import { useRequest } from '../../useRequest';
 import { colors } from './colors';
 
 const useStyles = makeStyles(theme => ({
   infoCard: {
-    '& + .MuiCard-root, & + .MuiAlert-root': {
+    marginBottom: theme.spacing(3),
+    '& + .MuiAlert-root': {
       marginTop: theme.spacing(3),
     },
   },
@@ -47,13 +47,13 @@ const useStyles = makeStyles(theme => ({
     marginRight: theme.spacing(1),
     display: 'inline-block',
   },
+  label: {
+    color: 'inherit',
+  }
 }));
 
 type Language = {
-  data: {
-    [key: string]: number;
-  };
-  total: number;
+  [key: string]: number;
 };
 
 type LanguageCardProps = {
@@ -63,21 +63,8 @@ type LanguageCardProps = {
 const LanguagesCard: FC<LanguageCardProps> = ({ entity }) => {
   let barWidth = 0;
   const { owner, repo } = useProjectEntity(entity);
-  const auth = useApi(githubAuthApiRef);
   const classes = useStyles();
-  const { value, loading, error } = useAsync(async (): Promise<Language|null> => {
-    const token = await auth.getAccessToken(['repo']);
-    const octokit = new Octokit({auth: token});
-    const response = await octokit.request('GET /repos/{owner}/{repo}/languages', {
-      owner,
-      repo,
-    });
-    const data = await response.data;
-    return {
-      data,
-      total: Object.values(data as number).reduce((a, b) => a + b),
-    };
-  }, []);
+  const { value, loading, error } = useRequest(entity, 'languages', 0, 0, true);
 
   if (loading) {
     return <Progress />;
@@ -88,7 +75,7 @@ const LanguagesCard: FC<LanguageCardProps> = ({ entity }) => {
     <InfoCard title="Languages" className={classes.infoCard}>
       <div className={classes.barContainer}>
         {
-          Object.entries(value.data).map((language, index: number) => {
+          Object.entries(value.data as Language).map((language, index: number) => {
             barWidth = barWidth + ((language[1] / value.total) * 100);
             return (
               <Tooltip title={ language[0] } placement="bottom-end" key={language[0]}>
@@ -109,8 +96,11 @@ const LanguagesCard: FC<LanguageCardProps> = ({ entity }) => {
           })
         }
       </div>
-      {Object.entries(value.data).map(language => (
+      {Object.entries(value.data as Language).map(language => (
         <Chip
+        classes={{
+          label: classes.label
+        }}
           label={
             <>
               <span

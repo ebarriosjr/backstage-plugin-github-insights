@@ -17,7 +17,6 @@ import React, { FC } from 'react';
 import { Grid } from '@material-ui/core';
 import {
   Page,
-  pageTheme,
   Content,
   ContentHeader,
   SupportButton,
@@ -33,7 +32,7 @@ const InsightsPage: FC<InsightsPageProps> = ({ entity }) => {
   const projectSlug = entity.metadata?.annotations?.['github.com/project-slug'];
 
   return projectSlug ? (
-    <Page theme={pageTheme.tool}>
+    <Page themeId="tool">
       <Content>
         <ContentHeader title="GitHub Insights">
           <SupportButton>Plugin to show GitHub Insights</SupportButton>
@@ -41,7 +40,7 @@ const InsightsPage: FC<InsightsPageProps> = ({ entity }) => {
         <Grid container spacing={3} direction="row" alignItems="stretch">
           <Grid item sm={12} md={6} lg={4}>
             <ContributorsCard entity={entity} />
-              <LanguagesCard entity={entity} />
+            <LanguagesCard entity={entity} />
             <ReleasesCard entity={entity} />
           </Grid>
           <Grid item sm={12} md={6} lg={8}>

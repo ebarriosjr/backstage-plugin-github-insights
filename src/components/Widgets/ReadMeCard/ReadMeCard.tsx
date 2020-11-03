@@ -17,15 +17,17 @@ import React, { FC } from 'react';
 import { makeStyles } from '@material-ui/core';
 import ReactMarkdown from 'react-markdown';
 import Alert from '@material-ui/lab/Alert';
-import { InfoCard, Progress, useApi, githubAuthApiRef} from '@backstage/core';
+import { InfoCard, Progress } from '@backstage/core';
 import { Entity } from '@backstage/catalog-model';
-import { Octokit } from '@octokit/rest';
-import { useAsync } from 'react-use';
+import gfm from 'remark-gfm';
 import { useProjectEntity } from '../../useProjectEntity';
+import { useRequest } from '../../useRequest';
+import { useUrl } from '../../useUrl';
 
 const useStyles = makeStyles(theme => ({
   infoCard: {
-    '& + .MuiCard-root, & + .MuiAlert-root': {
+    marginBottom: theme.spacing(3),
+    '& + .MuiAlert-root': {
       marginTop: theme.spacing(3),
     },
     '& .MuiCardContent-root': {
@@ -35,6 +37,21 @@ const useStyles = makeStyles(theme => ({
   readMe: {
     overflowY: 'auto',
     paddingRight: theme.spacing(1),
+    '& table': {
+      borderCollapse: 'collapse',
+      border: '1px solid #dfe2e5',
+      color: 'rgb(36, 41, 46)',
+    },
+    '& th, & td': {
+      border: '1px solid #dfe2e5',
+      padding: theme.spacing(1),
+    },
+    '& tr': {
+      backgroundColor: '#fff',
+    },
+    '& tr:nth-child(2n)': {
+      backgroundColor: '#f6f8fa',
+    },
     '& pre': {
       padding: '16px',
       overflow: 'auto',
@@ -42,6 +59,10 @@ const useStyles = makeStyles(theme => ({
       lineHeight: 1.45,
       backgroundColor: '#f6f8fa',
       borderRadius: '6px',
+      color: 'rgba(0, 0, 0, 0.87)',
+    },
+    '& a': {
+      color: '#2E77D0',
     },
     '& img': {
       maxWidth: '100%',
@@ -63,29 +84,21 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-type ReadMe = {
-  content: string;
-};
-
 type ReadMeCardProps = {
   entity: Entity;
   maxHeight?: number;
 };
 
+const getRepositoryDefaultBranch = (url: string) => {
+  const repositoryUrl = (new URL(url).searchParams).get('ref');
+  return repositoryUrl;
+}
+
 const ReadMeCard: FC<ReadMeCardProps> = ({ entity, maxHeight }) => {
   const { owner, repo } = useProjectEntity(entity);
-  const auth = useApi(githubAuthApiRef);
   const classes = useStyles();
-  const { value, loading, error } = useAsync(async (): Promise<ReadMe> => {
-    const token = await auth.getAccessToken(['repo']);
-    const octokit = new Octokit({auth: token});
-    const response = await octokit.request('GET /repos/{owner}/{repo}/readme', {
-      owner,
-      repo,
-    });
-    const data = await response.data;
-    return data;
-  }, []);
+  const { value, loading, error } = useRequest(entity, 'readme');
+  const { hostname } = useUrl();
 
   if (loading) {
     return <Progress />;
@@ -98,9 +111,12 @@ const ReadMeCard: FC<ReadMeCardProps> = ({ entity, maxHeight }) => {
       title="Read me"
       className={classes.infoCard}
       deepLink={{
-        link: `https://github.com/${owner}/${repo}/releases`,
+        link: `//${hostname}/${owner}/${repo}/blob/${getRepositoryDefaultBranch(value.url)}/README.md`,
         title: 'Read me',
-        onClick: () => window.open(`https://github.com/${owner}/${repo}/releases`),
+        onClick: (e) => {
+          e.preventDefault();
+          window.open(`//${hostname}/${owner}/${repo}/blob/${getRepositoryDefaultBranch(value.url)}/README.md`);
+        }
       }}
     >
       <div
@@ -110,7 +126,7 @@ const ReadMeCard: FC<ReadMeCardProps> = ({ entity, maxHeight }) => {
             maxHeight: `${maxHeight}px`,
           }
         }>
-        <ReactMarkdown source={value && atob(value.content)} />
+        <ReactMarkdown plugins={[gfm]} children={atob(value.content).replace(/\(\./gi, `(//${hostname}/${owner}/${repo}/raw/${getRepositoryDefaultBranch(value.url)}`)} />
       </div>
 
     </InfoCard>
